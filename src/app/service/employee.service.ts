@@ -1,19 +1,46 @@
 import { Injectable } from '@angular/core';
-import {BehaviorSubject, Observable} from "rxjs";
-import {Employee} from "../model/employee";
+import {
+  Firestore,
+  collection,
+  addDoc,
+  collectionData,
+  Timestamp,
+} from '@angular/fire/firestore';
+import { Observable, map } from 'rxjs';
+import { Employee } from '../model/employee';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class EmployeeService {
-  employees$: BehaviorSubject<readonly Employee[]> = new BehaviorSubject<readonly Employee[]>([]);
-
-  get $(): Observable<readonly Employee[]> {
-    return this.employees$;
-  }
+  constructor(private firestore: Firestore) {}
 
   addEmployee(employee: Employee) {
-    this.employees$.next([...this.employees$.getValue(), employee]);
-    return true;
+    const employeesRef = collection(this.firestore, 'employees');
+    const plainEmployee = {
+      name: employee.name,
+      dateOfBirth: Timestamp.fromDate(employee.dateOfBirth),
+      city: employee.city,
+      salary: employee.salary,
+      gender: employee.gender,
+      email: employee.email,
+    };
+    return addDoc(employeesRef, plainEmployee);
+  }
+
+  getEmployees(): Observable<Employee[]> {
+    const employeesRef = collection(this.firestore, 'employees');
+    return collectionData(employeesRef, { idField: 'id' }).pipe(
+      map(
+        (employees) =>
+          employees.map((emp) => ({
+            ...emp,
+            dateOfBirth:
+              emp['dateOfBirth'] instanceof Timestamp
+                ? emp['dateOfBirth'].toDate()
+                : new Date(emp['dateOfBirth']),
+          })) as Employee[]
+      )
+    );
   }
 }
